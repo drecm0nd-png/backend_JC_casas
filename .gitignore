@@ -1,0 +1,16 @@
+# Entorno virtual
+venv/
+.venv/
+env/
+
+# Python
+__pycache__/
+*.pyc
+
+# Variables sensibles
+.env
+
+# Editores y sistema
+.vscode/
+.idea/
+.DS_Store
