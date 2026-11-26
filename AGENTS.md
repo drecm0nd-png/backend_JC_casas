@@ -1,51 +1,33 @@
 # AGENTS.md
 
-Backend Django + DRF monolítico modular. **Estado actual: esqueleto.** Las apps existen pero `models.py`/`views.py` siguen con plantillas vacías, no hay `services.py`, `serializers.py`, `urls.py` por app ni frontend en este repo. No asumas que una regla "de destino" ya está implementada.
+Backend Django + DRF, monolito modular. **Estado real: esqueleto**: las 5 apps (`usuarios`, `autenticacion`, `menu`, `pedido`, `impresora`) tienen `models.py`/`views.py`/`tests.py` de plantilla; no hay `services.py`, `serializers.py`, `urls.py` por app, ni JWT configurado, ni frontend en este repo. No asumas que lo documentado ya existe.
 
-## Comandos (PowerShell, Windows)
+## Punto de retorno (retomar en otro dispositivo)
 
-- Activar venv: `.\.venv\Scripts\Activate.ps1`
-- Chequeo: `python manage.py check`
-- Tests: `python manage.py test` (un test puntual: `python manage.py test app.tests.Clase.metodo`)
-- Migraciones: `python manage.py makemigrations` luego `python manage.py migrate`
-- Servidor: `python manage.py runserver`
-- No hay `db.sqlite3` todavía; se crea con `migrate`.
+- Fase actual: **cierre de reglas de negocio**, todavía sin código de negocio. Resolver primero los `Pendiente de definir` de `docs/reglas-negocio.md`.
+- Orden de implementación acordado: `menu` → `pedido` → `impresora`. `pedido` debe consumir solo servicios de `menu`, no sus modelos.
+- Leer en este orden: `docs/reglas-negocio.md` (reglas confirmadas por el usuario; mandan sobre los otros documentos), `docs/contexto_del_proyecto_jc_casas_restaurante.md`, `docs/arquitectura_y_diagrama_de_componentes.md`, `docs/jc_casas_bd.sql` (borrador MySQL, solo referencia) y `docs/api.md` (contrato a reconciliar).
+- Los diagramas binarios antiguos (`docs/diagramas/*.png`/`.pdf`) fueron sustituidos en el working tree por los `.md`/`.sql` anteriores.
+- Conflictos vigentes: el documento de contexto dice horario `7:00–16:30`, envío `1.500` y comanda automática; las reglas confirmadas dicen `12:00–17:00`, envío `2.500` y comanda manual. Preferir `docs/reglas-negocio.md` hasta nuevo aviso.
+- La arquitectura propuesta separa `Comanda` e `Impresion`, pero en código solo existe la app `impresora`. No asumas que `comanda` está implementada.
+- `docs/jc_casas_bd.sql` es MySQL Workbench (`borrador_bd`), no una migración Django ni compatible directamente con el SQLite actual.
 
-## Discrepancias con el plan (verificadas)
+## Setup y verificación (PowerShell/Windows)
 
-- `config/settings.py` usa **SQLite** (`db.sqlite3`), no PostgreSQL, aunque `psycopg` está en `requirements.txt`. Cambiar solo si se pide.
-- `SECRET_KEY` está hardcodeada y `DEBUG = True`. Al tocar settings, mover a variables de entorno.
-- No hay JWT configurado aún: `rest_framework_simplejwt` y `drf-spectacular` están instalados pero ausentes de `INSTALLED_APPS` y de `config/urls.py` (que solo expone `admin/`).
-- `bcrypt` **no** está en `requirements.txt`; no lo uses sin agregarlo.
-- El frontend React no está en este repositorio.
+- No hay `.venv` ni `db.sqlite3` versionados: `python -m venv .venv`; `.\.venv\Scripts\Activate.ps1`; `pip install -r requirements.txt`; `python manage.py migrate`.
+- Chequeo: `python manage.py check`; tests: `python manage.py test`; test puntual: `python manage.py test app.tests.Clase.metodo`.
+- `requirements.txt` fija Django 5.2.19; sin venv, el `python` global de esta máquina tiene otra versión (6.1). Usa el venv.
 
-## Arquitectura (convenciones del proyecto)
+## Trampas del estado actual
 
-- Apps: `usuarios`, `autenticacion`, `menu`, `pedido`, `impresora`. `config/` es el proyecto Django.
-- Lógica de negocio en `services.py` de cada app, **nunca** en las vistas.
-- Ningún módulo importa modelos de otro módulo directamente; usa la API/servicios del módulo.
-- Autenticación JWT propia en `autenticacion`; contraseñas con bcrypt (cuando se implemente).
+- `config/settings.py` usa SQLite (`db.sqlite3`) aunque `psycopg` esté en requirements; `SECRET_KEY` está hardcodeada y `DEBUG=True`.
+- `.env` está en `.gitignore`, pero no hay loader de `.env`: las variables no se cargan solas.
+- `djangorestframework_simplejwt` y `drf-spectacular` están instalados pero no en `INSTALLED_APPS`; `config/urls.py` solo expone `admin/`. `bcrypt` no está en requirements.
 
-## Seguridad (obligatorio)
+## Convenciones del proyecto
 
-- Sin secretos en código: variables de entorno (`.env` está en `.gitignore`).
-- Toda ruta que modifique datos exige autenticación.
-- Validar todas las entradas antes de usarlas.
-- Nunca devolver contraseñas ni hashes en respuestas.
-
-## Reglas de negocio
-
-- Reglas detalladas (roles, estados, total, pago, comanda): ver `docs/reglas-negocio.md`; leerlo antes de implementar pedidos.
-- El total del pedido se calcula en el servidor; nunca confiar en el precio enviado por el frontend.
-- Un pedido en estado "entregado" no puede cancelarse.
-
-## Convenciones de trabajo
-
-- Commits tipo Conventional Commits en español (`feat:`, `chore:`, `fix:`), p. ej. `chore(esqueleto): ...`.
-- Ramas actuales: `main`, `develop`, `chore/configuracion_inicial`.
-
-## Idioma
-
-- Responde siempre en español, salvo que se pida otro idioma.
-- Escribe los comentarios del código y los mensajes de commit en español.
-- Los nombres de variables, funciones y archivos van en inglés o en español sin tildes, según las convenciones del proyecto.
+- Lógica de negocio en `services.py` de cada app, nunca en vistas; no importes modelos de otra app directamente: usa sus servicios/API.
+- Auth planificada: JWT propia en `autenticacion`, contraseñas con bcrypt (agregar dependencia antes de usarla); `usuarios` no emite tokens.
+- Contrato de API en `docs/api.md` (`/api/v1`, Bearer JWT, errores `{error:{code,message,details}}`); reglas vigentes en `docs/reglas-negocio.md` (leer antes de tocar `pedido`). Ese contrato aún no está reconciliado con las reglas nuevas: historial oculto al cliente y nombre/teléfono del pedido tomados del perfil. Total calculado en servidor; `entregado` no se cancela.
+- Seguridad: sin secretos en código, toda ruta que modifica datos exige autenticación, valida entradas y nunca devuelvas contraseñas/hashes.
+- Commits Conventional en español (`feat:`, `chore:`, `fix:`, `docs:`). Responde en español; comentarios y commits en español; identificadores en inglés o español sin tildes.
